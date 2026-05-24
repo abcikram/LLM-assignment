@@ -14,8 +14,6 @@ export default defineConfig({
     }
 })
 
-
-
 const prisma = new PrismaClient({
     accelerateUrl: process.env.DATABASE_URL,
 });
@@ -27,12 +25,27 @@ const client = new OpenAI({
 
 const app = express();
 
-app.use(express.json())  
+app.use(express.json())
 
 app.post('/api/notes', async (req, res) => {
     const { user_id, content } = req.body;
 
     try {
+
+        const existingNotes = await prisma.user.findFirst({
+            where: {
+                authorId: user_id,
+                content: contentData
+            }
+        });
+
+        if (existingNotes) {
+            return res.status(400).send({
+                status: true,
+                message: "Notes is alresdy exist"
+            })
+        }
+
         const prompt = `generate a short AI summary of the ${content}`;
 
         const response = await client.responses.create({
@@ -44,7 +57,8 @@ app.post('/api/notes', async (req, res) => {
 
         const contentData = response.output_text
 
-        const users = await prisma.user.findMany();
+       
+
 
         // console.log("post", users)
 
@@ -68,7 +82,7 @@ app.post('/api/notes', async (req, res) => {
 
 app.get('/api/notes/:user_id', async (req, res) => {
     try {
-        const {user_id} = req.params
+        const { user_id } = req.params
         const post = await prisma.post.findMany({
             where: { authorId: user_id },
             orderBy: { id: "desc" },
